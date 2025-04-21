@@ -108,7 +108,7 @@
   color: #141d36;
 }
 
-.e-loop-item {
+.e-loop-item.viewed {
   position: relative;
   transition: all 0.3s ease;
   cursor: pointer;
@@ -130,10 +130,3 @@
 .e-loop-item.viewed .elementor-heading-title {
   color: #e6d5c0 !important;
 }
-/* .e-loop-item.viewed::before {
-  position: relative;
-  background-color: red;
-  content: "hekhre";
-  z-index: 99;
-  transition: all 0.3s ease;
-} */

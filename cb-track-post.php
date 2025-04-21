@@ -2,8 +2,12 @@
 /**
  * Plugin Name: CB Track Post
  * Description: Tracks user's viewed posts and highlights them in category/archive pages, with a bookmark button on single post pages.
+ * Plugin URI: https://github.com/chinmoybiswas93/cb-post-tracking
  * Version: 1.0.2
  * Author: Chinmoy Biswas
+ * Author URI: https://github.com/chinmoybiswas93
+ * License: GPL2
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  */
 
 if (!defined('ABSPATH')) {
@@ -143,7 +147,6 @@ class CB_Track_Post
             $categorized_posts[$category_name][] = [
                 'id' => $post_id,
                 'title' => get_the_title($post_id),
-                'chapter' => get_post_meta($post_id, 'chapter_number', true) ?: '1'
             ];
         }
 
@@ -178,8 +181,17 @@ class CB_Track_Post
 
     private function get_empty_bookmarks_message()
     {
-        return '<div class="cb-bookmarked-posts"><p>No Bookmarks. <br>Tap heart to leave chapter bookmarks.
-</p></div>';
+        return '<div class="cb-bookmarked-posts"><p>No Bookmarks. <br>Tap heart to leave chapter bookmarks.</p></div>';
+    }
+
+    public static function clear_plugin_cookies()
+    {
+        if (isset($_COOKIE['cb_post_id'])) {
+            setcookie('cb_post_id', '', time() - 3600, COOKIEPATH, COOKIE_DOMAIN);
+        }
+        if (isset($_COOKIE['cb_bookmarked_posts'])) {
+            setcookie('cb_bookmarked_posts', '', time() - 3600, COOKIEPATH, COOKIE_DOMAIN);
+        }
     }
 }
 
@@ -187,3 +199,9 @@ class CB_Track_Post
 add_action('plugins_loaded', function () {
     CB_Track_Post::get_instance();
 });
+
+// Register deactivation hook
+register_deactivation_hook(__FILE__, ['CB_Track_Post', 'clear_plugin_cookies']);
+
+// Register uninstall hook
+register_uninstall_hook(__FILE__, ['CB_Track_Post', 'clear_plugin_cookies']);
