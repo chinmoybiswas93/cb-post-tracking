@@ -1,93 +1,151 @@
-//using jQuery to track post views
-jQuery(document).ready(function ($) {
-  // Cookie helper function
-  function getCookie(name) {
+class PostTracker {
+  constructor() {
+    this.$ = jQuery;
+    this.initialize();
+  }
+
+  initialize() {
+    this.initializeEventListeners();
+    this.initializeTracking(); // Explicitly call on construction
+  }
+
+  getCookie(name) {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
     if (parts.length === 2) return parts.pop().split(";").shift();
     return null;
   }
 
-  // Add this helper function at the top with your other functions
-  function getBookmarkedPosts() {
-    const bookmarkedPosts = getCookie("bookmarked_posts");
+  getBookmarkedPosts() {
+    const bookmarkedPosts = this.getCookie("cb_bookmarked_posts");
     return bookmarkedPosts ? JSON.parse(bookmarkedPosts) : [];
   }
 
-  // Add this helper function to save bookmarked posts
-  function saveBookmarkedPosts(posts) {
-    document.cookie = `bookmarked_posts=${JSON.stringify(
+  saveBookmarkedPosts(posts) {
+    document.cookie = `cb_bookmarked_posts=${JSON.stringify(
       posts
     )}; path=/; max-age=${30 * 24 * 60 * 60}`; // 30 days expiry
   }
 
-  function initializeTracking() {
-    // First, clear all previously applied styles
-    $(".e-loop-item").css({
-      backgroundColor: "",
-      borderRadius: "none",
-      cursor: "pointer",
-    });
+  initializeTracking() {
+    // Remove any existing viewed classes
+    this.$(".e-loop-item").removeClass("viewed");
 
-    // get the post id from cookie and console
-    var postId = getCookie("cb_post_id");
+    const postId = this.getCookie("cb_post_id");
+    // console.log("Post ID from cookie: " + postId);
 
-    console.log("Post ID from cookie: " + postId);
-
-    //find the element with the class 'e-loop-item e-loop-item-{PostId}' and apply style
-    var postElement = $(".e-loop-item.e-loop-item-" + postId);
-    if (postElement.length) {
-      postElement.css({
-        backgroundColor: "#505C8A",
-        borderRadius: "50%",
-        cursor: "pointer",
-      });
+    if (!postId) {
+      return; // Exit if no post ID is found
     }
 
-    //check if the postId includes in the bookmarked_posts cookie then add the class 'bookmarked' to the button
-    var bookmarkedPosts = getBookmarkedPosts();
-    if (bookmarkedPosts.includes(postId)) {
-      $(".cb-bookmark-btn").addClass("bookmarked");
-    } else {
-      $(".cb-bookmark-btn").removeClass("bookmarked");
+    // Find and add viewed class to the post element
+    const postElements = this.$(".e-loop-item").filter((_, element) => {
+      return element.className.includes(`e-loop-item-${postId}`);
+    });
+
+    if (postElements.length) {
+      postElements.addClass("viewed");
     }
 
-    $(".cb-bookmark-btn").on("click", function () {
-      var postId = getCookie("cb_post_id");
-      if (postId) {
-        let bookmarkedPosts = getBookmarkedPosts();
-
-        // Check if post is already bookmarked
-        const index = bookmarkedPosts.indexOf(postId);
-
-        if (index === -1) {
-          // Add post to bookmarks
-          bookmarkedPosts.push(postId);
-          console.log("Post bookmarked: " + postId);
-          $(this).addClass("bookmarked");
-        }
-        // Remove post from bookmarks
-        else {
-          bookmarkedPosts.splice(index, 1);
-          console.log("Post unbookmarked: " + postId);
-          $(this).removeClass("bookmarked");
-        }
-        saveBookmarkedPosts(bookmarkedPosts);
-      }
-    });
+    // Update bookmark button state
+    const bookmarkedPosts = this.getBookmarkedPosts();
+    const bookmarkBtn = this.$(".cb-bookmark-btn");
+    if (bookmarkBtn.length) {
+      bookmarkedPosts.includes(postId)
+        ? bookmarkBtn.addClass("bookmarked")
+        : bookmarkBtn.removeClass("bookmarked");
+    }
   }
 
-  // Run on initial page load
-  initializeTracking();
+  handleBookmarkClick() {
+    const postId = this.getCookie("cb_post_id");
+    if (!postId) return;
 
-  // Handle back/forward navigation and page show events
-  window.addEventListener("pageshow", function (event) {
-    // Check if the page is loaded from cache (back/forward navigation)
-    if (
-      event.persisted ||
-      (window.performance && window.performance.navigation.type === 2)
-    ) {
-      initializeTracking();
+    let bookmarkedPosts = this.getBookmarkedPosts();
+    const index = bookmarkedPosts.indexOf(postId);
+    const bookmarkBtn = this.$(".cb-bookmark-btn");
+
+    if (index === -1) {
+      // Add post to bookmarks
+      bookmarkedPosts.push(postId);
+      console.log("Post bookmarked: " + postId);
+      bookmarkBtn.addClass("bookmarked");
+    } else {
+      // Remove post from bookmarks
+      bookmarkedPosts.splice(index, 1);
+      console.log("Post unbookmarked: " + postId);
+      bookmarkBtn.removeClass("bookmarked");
     }
-  });
+
+    this.saveBookmarkedPosts(bookmarkedPosts);
+  }
+
+  initializeEventListeners() {
+    // Handle bookmark button clicks
+    this.$(".cb-bookmark-btn").on("click", () => this.handleBookmarkClick());
+
+    // Handle bookmark remove button clicks
+    this.$(".cb-bookmarked-posts").on("click", ".bookmark-remove", (e) => {
+      const button = this.$(e.currentTarget);
+      const postId = button.data("post-id").toString();
+      const bookmarkItem = button.closest(".bookmark-item");
+      const bookmarkCategory = bookmarkItem.closest(".bookmark-category");
+      const bookmarksContainer = this.$(".cb-bookmarked-posts");
+
+      let bookmarkedPosts = this.getBookmarkedPosts();
+      const index = bookmarkedPosts.indexOf(postId);
+
+      if (index !== -1) {
+        // Remove from cookie first
+        bookmarkedPosts.splice(index, 1);
+        this.saveBookmarkedPosts(bookmarkedPosts);
+
+        // Count remaining visible items (excluding the one being removed)
+        const remainingItems = this.$(".bookmark-item:visible").length - 1;
+
+        bookmarkItem.fadeOut(300, () => {
+          bookmarkItem.remove();
+
+          // If this was the last item in the category, remove the category div
+          const categoryItemsCount = bookmarkCategory.find(
+            ".bookmark-item:visible"
+          ).length;
+          if (categoryItemsCount === 0) {
+            bookmarkCategory.fadeOut(300, () => bookmarkCategory.remove());
+          }
+
+          // Show empty message if no items remain
+          if (remainingItems === 0) {
+            const emptyMessage =
+              "<p>No Bookmarks. <br>Tap heart to leave chapter bookmarks.</p>";
+            if (bookmarksContainer.find("p").length === 0) {
+              bookmarksContainer.html(emptyMessage);
+            }
+          }
+        });
+      }
+    });
+
+    // Handle back/forward navigation and page show events
+    window.addEventListener("pageshow", (event) => {
+      if (
+        event.persisted ||
+        (window.performance && window.performance.navigation.type === 2)
+      ) {
+        this.initializeTracking();
+      }
+    });
+
+    // Add DOMContentLoaded listener for better initialization
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () =>
+        this.initializeTracking()
+      );
+    }
+  }
+}
+
+// Initialize the tracker when the document is ready
+jQuery(document).ready(() => {
+  new PostTracker();
 });

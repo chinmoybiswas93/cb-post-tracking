@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: CB Track Post
- * Description: Tracks user's viewed posts and highlights them in category/archive pages
- * Version: 1.0.1
+ * Description: Tracks user's viewed posts and highlights them in category/archive pages, with a bookmark button on single post pages.
+ * Version: 1.0.2
  * Author: Chinmoy Biswas
  */
 
@@ -10,112 +10,180 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-function cb_enqueue_scripts()
+class CB_Track_Post
 {
-    // Enqueue a custom JavaScript file
-    wp_enqueue_script('cb-track-post', plugin_dir_url(__FILE__) . 'assets/cb-track-post.js', array('jquery'), '1.0.1', true);
+    private static $instance = null;
+    private const VERSION = '1.0.2';
+    private const COOKIE_EXPIRY = 86400 * 30; // 30 days
 
-    // Enqueue a custom CSS file
-    wp_enqueue_style('cb-track-post', plugin_dir_url(__FILE__) . 'assets/style.css', array(), '1.0.1');
-}
-add_action('wp_enqueue_scripts', 'cb_enqueue_scripts');
+    public static function get_instance()
+    {
+        if (null === self::$instance) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
 
-//check if single page, then var dump the post id
-function cb_track_post()
-{
-    if (is_single()) {
+    private function __construct()
+    {
+        $this->init_hooks();
+    }
+
+    private function init_hooks()
+    {
+        add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
+        add_action('wp_head', [$this, 'track_post']);
+        add_action('wp_footer', [$this, 'add_bookmark_button']);
+        add_shortcode('cb_bookmarked_posts', [$this, 'display_bookmarked_posts']);
+    }
+
+    public function enqueue_scripts()
+    {
+        wp_enqueue_script(
+            'cb-track-post',
+            plugin_dir_url(__FILE__) . 'assets/cb-track-post.js',
+            ['jquery'],
+            self::VERSION,
+            true
+        );
+
+        wp_enqueue_style(
+            'cb-track-post',
+            plugin_dir_url(__FILE__) . 'assets/style.css',
+            [],
+            self::VERSION
+        );
+    }
+
+    public function track_post()
+    {
+        if (!is_single()) {
+            return;
+        }
 
         $post_id = get_the_ID();
-        // Check if the post ID is set
         if ($post_id) {
-            // Store the post ID in a cookie
-            setcookie('cb_post_id', $post_id, time() + (86400 * 30), COOKIEPATH, COOKIE_DOMAIN);
+            setcookie('cb_post_id', $post_id, time() + self::COOKIE_EXPIRY, COOKIEPATH, COOKIE_DOMAIN);
         }
     }
-}
-add_action('wp_head', 'cb_track_post');
 
+    public function add_bookmark_button()
+    {
+        if (!is_single()) {
+            return;
+        }
 
-//add a bookmark in the post single page rounded div>button>heart-icon
-function cb_add_bookmark_button()
-{
-    if (is_single()) {
         $post_id = get_the_ID();
-        $is_bookmarked = false;
+        $is_bookmarked = $this->is_post_bookmarked($post_id);
+        $empty_heart = plugin_dir_url(__FILE__) . 'assets/heart-empty.svg';
+        $filled_heart = plugin_dir_url(__FILE__) . 'assets/heart-fill.svg';
 
-        // Check if bookmarked_posts cookie exists
-        if (isset($_COOKIE['bookmarked_posts'])) {
-            $bookmarked_posts = json_decode(stripslashes($_COOKIE['bookmarked_posts']), true);
-            $is_bookmarked = in_array($post_id, $bookmarked_posts);
-        }
-
-        echo '<div class="cb-bookmark-button">
-            <button class="cb-bookmark-btn ' . ($is_bookmarked ? 'bookmarked' : '') . '">
-                <img src="' . plugin_dir_url(__FILE__) . 'assets/heart-icon.png" 
-                     alt="Bookmark" 
-                     style="width: 24px; height: 24px; max-width: unset;">
-            </button>
-        </div>';
-    }
-}
-add_action('wp_footer', 'cb_add_bookmark_button');
-
-
-
-// create a shortcode to display the bookmarked posts form the cookie
-function cb_display_bookmarked_posts()
-{
-    $output = '<div class="cb-bookmarked-posts">';
-    if (isset($_COOKIE['bookmarked_posts'])) {
-        $bookmarked_posts = json_decode(stripslashes($_COOKIE['bookmarked_posts']), true);
-
-        if (!empty($bookmarked_posts)) {
-            // Group posts by category
-            $categorized_posts = array();
-
-            foreach ($bookmarked_posts as $post_id) {
-                $post = get_post($post_id);
-                if ($post) {
-                    $categories = get_the_category($post_id);
-                    if (!empty($categories)) {
-                        $category_name = $categories[0]->name;
-                        if (!isset($categorized_posts[$category_name])) {
-                            $categorized_posts[$category_name] = array();
-                        }
-                        $categorized_posts[$category_name][] = array(
-                            'id' => $post_id,
-                            'title' => get_the_title($post_id),
-                            'chapter' => get_post_meta($post_id, 'chapter_number', true) ?: '1'
-                        );
-                    }
-                }
-            }
-
-            if (!empty($categorized_posts)) {
-                foreach ($categorized_posts as $category => $posts) {
-                    $output .= '<div class="bookmark-category">';
-                    foreach ($posts as $post) {
-                        $output .= '<div class="bookmark-item">';
-                        $output .= '<a href="' . get_permalink($post['id']) . '">';
-                        $output .= '<strong>' . esc_html($category) . '</strong><br>';
-                        $output .= '<span class="chapter">Chapter: ' . esc_html($post['title']) . '</span>';
-                        $output .= '</a>';
-                        $output .= '</div>';
-                    }
-                    $output .= '</div>';
-                }
-            } else {
-                $output .= '<p>No bookmarked posts found.</p>';
-            }
-        } else {
-            $output .= '<p>No bookmarked posts found.</p>';
-        }
-    } else {
-        $output .= '<p>No bookmarked posts found.</p>';
+        printf(
+            '<div class="cb-bookmark-button">
+                <button class="cb-bookmark-btn%s">
+                    <img src="%s" class="heart-empty" alt="Add bookmark" style="width: 24px; height: 24px; max-width: unset;">
+                    <img src="%s" class="heart-fill" alt="Remove bookmark" style="width: 24px; height: 24px; max-width: unset;">
+                </button>
+            </div>',
+            $is_bookmarked ? ' bookmarked' : '',
+            esc_url($empty_heart),
+            esc_url($filled_heart)
+        );
     }
 
-    $output .= '</div>';
+    private function is_post_bookmarked($post_id)
+    {
+        if (!isset($_COOKIE['cb_bookmarked_posts'])) {
+            return false;
+        }
 
-    return $output;
+        $bookmarked_posts = json_decode(stripslashes($_COOKIE['cb_bookmarked_posts']), true);
+        return is_array($bookmarked_posts) && in_array($post_id, $bookmarked_posts);
+    }
+
+    public function display_bookmarked_posts()
+    {
+        if (!isset($_COOKIE['cb_bookmarked_posts'])) {
+            return $this->get_empty_bookmarks_message();
+        }
+
+        $bookmarked_posts = json_decode(stripslashes($_COOKIE['cb_bookmarked_posts']), true);
+        if (empty($bookmarked_posts)) {
+            return $this->get_empty_bookmarks_message();
+        }
+
+        $categorized_posts = $this->categorize_posts($bookmarked_posts);
+        if (empty($categorized_posts)) {
+            return $this->get_empty_bookmarks_message();
+        }
+
+        return $this->render_bookmarked_posts($categorized_posts);
+    }
+
+    private function categorize_posts($post_ids)
+    {
+        $categorized_posts = [];
+
+        foreach ($post_ids as $post_id) {
+            $post = get_post($post_id);
+            if (!$post) {
+                continue;
+            }
+
+            $categories = get_the_category($post_id);
+            if (empty($categories)) {
+                continue;
+            }
+
+            $category_name = $categories[0]->name;
+            if (!isset($categorized_posts[$category_name])) {
+                $categorized_posts[$category_name] = [];
+            }
+
+            $categorized_posts[$category_name][] = [
+                'id' => $post_id,
+                'title' => get_the_title($post_id),
+                'chapter' => get_post_meta($post_id, 'chapter_number', true) ?: '1'
+            ];
+        }
+
+        return $categorized_posts;
+    }
+
+    private function render_bookmarked_posts($categorized_posts)
+    {
+        $output = '<div class="cb-bookmarked-posts">';
+        foreach ($categorized_posts as $category => $posts) {
+            $output .= '<div class="bookmark-category">';
+            foreach ($posts as $post) {
+                $output .= sprintf(
+                    '<div class="bookmark-item">
+                        <a href="%s">
+                            <strong class="category-name">%s</strong>
+                            <span class="chapter">Chapter %s</span>
+                        </a>
+                        <button class="bookmark-remove" data-post-id="%d" title="Remove bookmark">×</button>
+                    </div>',
+                    esc_url(get_permalink($post['id'])),
+                    esc_html($category),
+                    esc_html($post['title']),
+                    (int) $post['id']
+                );
+            }
+            $output .= '</div>';
+        }
+        $output .= '</div>';
+        return $output;
+    }
+
+    private function get_empty_bookmarks_message()
+    {
+        return '<div class="cb-bookmarked-posts"><p>No Bookmarks. <br>Tap heart to leave chapter bookmarks.
+</p></div>';
+    }
 }
-add_shortcode('cb_bookmarked_posts', 'cb_display_bookmarked_posts');
+
+// Initialize the plugin
+add_action('plugins_loaded', function () {
+    CB_Track_Post::get_instance();
+});

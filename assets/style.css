@@ -20,32 +20,120 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  overflow: hidden;
 }
 
-.cb-bookmark-btn.bookmarked {
-  background-color: #505c8a !important;
-  color: white;
+.cb-bookmark-btn img {
+  position: absolute;
+  transition: opacity 0.5s ease;
+}
+
+.cb-bookmark-btn .heart-empty {
+  opacity: 1;
+}
+
+.cb-bookmark-btn .heart-fill {
+  opacity: 0;
+}
+
+.cb-bookmark-btn.bookmarked .heart-empty {
+  opacity: 0;
+}
+
+.cb-bookmark-btn.bookmarked .heart-fill {
+  opacity: 1;
 }
 
 .bookmark-item {
   text-align: center;
-  background: #141d36;
+  background: #1c2a52;
   margin: 10px 0;
-  padding: 15px;
+  padding: 15px 45px;
   border-radius: 8px;
   position: relative;
 }
 
-.bookmark-item strong {
-  font-size: 20px;
-  color: #fff;
-}
 .bookmark-item a {
   color: white;
   text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+}
+
+.bookmark-item .category-name {
+  font-size: 18px;
+  color: #fff;
+  margin: 0;
+  padding: 0;
   display: block;
 }
-.chapter {
+
+.bookmark-item .chapter {
   color: #8891a7;
-  font-size: 0.9em;
+  font-size: 14px;
+  margin: 0;
+  padding: 0;
 }
+
+.bookmark-remove {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #8891a7;
+  cursor: pointer;
+  padding: 5px;
+  font-size: 20px;
+  line-height: 1;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border-radius: 50%;
+}
+
+.bookmark-remove:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cb-bookmarked-posts {
+  text-align: center;
+  color: #141d36;
+}
+
+.e-loop-item {
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.e-loop-item.viewed::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 64px;
+  height: 64px;
+  background-color: #505c8a;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.e-loop-item.viewed .elementor-heading-title {
+  color: #e6d5c0 !important;
+}
+/* .e-loop-item.viewed::before {
+  position: relative;
+  background-color: red;
+  content: "hekhre";
+  z-index: 99;
+  transition: all 0.3s ease;
+} */
