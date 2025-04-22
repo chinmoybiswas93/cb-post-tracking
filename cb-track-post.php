@@ -3,7 +3,7 @@
  * Plugin Name: CB Track Post
  * Description: Tracks user's viewed posts and highlights them in category/archive pages, with a bookmark button on single post pages.
  * Plugin URI: https://github.com/chinmoybiswas93/cb-post-tracking
- * Version: 1.0.2
+ * Version: 1.0.4
  * Author: Chinmoy Biswas
  * Author URI: https://github.com/chinmoybiswas93
  * License: GPL2
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 class CB_Track_Post
 {
     private static $instance = null;
-    private const VERSION = '1.0.2';
+    private const VERSION = '1.0.4';
     private const COOKIE_EXPIRY = 86400 * 30; // 30 days
 
     public static function get_instance()
@@ -35,8 +35,8 @@ class CB_Track_Post
 
     private function init_hooks()
     {
+        add_action('wp', [$this, 'track_post']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
-        add_action('wp_head', [$this, 'track_post']);
         add_action('wp_footer', [$this, 'add_bookmark_button']);
         add_shortcode('cb_bookmarked_posts', [$this, 'display_bookmarked_posts']);
     }
@@ -61,13 +61,16 @@ class CB_Track_Post
 
     public function track_post()
     {
-        if (!is_single()) {
+        // Don't run in admin
+        if (is_admin()) {
             return;
         }
 
-        $post_id = get_the_ID();
-        if ($post_id) {
-            setcookie('cb_post_id', $post_id, time() + self::COOKIE_EXPIRY, COOKIEPATH, COOKIE_DOMAIN);
+        if (is_single()) {
+            $post_id = get_the_ID();
+            if ($post_id) {
+                setcookie('cb_post_id', $post_id, time() + self::COOKIE_EXPIRY, COOKIEPATH, COOKIE_DOMAIN);
+            }
         }
     }
 

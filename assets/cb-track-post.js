@@ -6,6 +6,7 @@ class PostTracker {
 
   initialize() {
     this.initializeEventListeners();
+    this.checkPostIdFromBodyClass(); // Check post ID from body class first
     this.initializeTracking(); // Explicitly call on construction
   }
 
@@ -32,7 +33,6 @@ class PostTracker {
     this.$(".e-loop-item").removeClass("viewed");
 
     const postId = this.getCookie("cb_post_id");
-    // console.log("Post ID from cookie: " + postId);
 
     if (!postId) {
       return; // Exit if no post ID is found
@@ -40,7 +40,7 @@ class PostTracker {
 
     // Find and add viewed class to the post element
     const postElements = this.$(".e-loop-item").filter((_, element) => {
-      return element.className.includes(`e-loop-item-${postId}`);
+      return this.$(element).hasClass(`e-loop-item-${postId}`);
     });
 
     if (postElements.length) {
@@ -55,6 +55,28 @@ class PostTracker {
         ? bookmarkBtn.addClass("bookmarked")
         : bookmarkBtn.removeClass("bookmarked");
     }
+  }
+
+  checkPostIdFromBodyClass() {
+    const bodyClasses = document.body.className.split(" ");
+    const postIdClass = bodyClasses.find((className) =>
+      className.startsWith("postid-")
+    );
+
+    if (postIdClass) {
+      const currentPostId = postIdClass.replace("postid-", "");
+      const cookiePostId = this.getCookie("cb_post_id");
+
+      // Update cookie if post ID from body class doesn't match cookie
+      if (currentPostId !== cookiePostId) {
+        console.log("Updating cookie with new post ID: " + currentPostId);
+        document.cookie = `cb_post_id=${currentPostId}; path=/; max-age=${
+          30 * 24 * 60 * 60
+        }`; // 30 days expiry
+      }
+    }
+
+    console.log("Not Updaging cookie with new post ID");
   }
 
   handleBookmarkClick() {
