@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: CB Track Post
+ * Plugin Name: CB Post Tracking
  * Description: Tracks user's viewed posts and highlights them in category/archive pages, with a bookmark button on single post pages.
  * Plugin URI: https://github.com/chinmoybiswas93/cb-post-tracking
  * Version: 1.0.4

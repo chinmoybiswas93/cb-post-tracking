@@ -31,7 +31,6 @@ class PostTracker {
   initializeTracking() {
     // Remove any existing viewed classes
     this.$(".e-loop-item").removeClass("viewed");
-
     const postId = this.getCookie("cb_post_id");
 
     if (!postId) {
@@ -75,8 +74,6 @@ class PostTracker {
         }`; // 30 days expiry
       }
     }
-
-    console.log("Not Updaging cookie with new post ID");
   }
 
   handleBookmarkClick() {
